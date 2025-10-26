@@ -50,6 +50,20 @@ impl XEdDSAPrivateKey {
         }
     }
 
+    /// Serialize the private key to 32 bytes.
+    /// Returns the canonical representation of the Scalar.
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.montgomery_private_key.to_bytes()
+    }
+
+    /// Deserialize a private key from 32 bytes.
+    /// Uses `from_bytes_mod_order` to handle non-canonical encodings.
+    pub fn from_bytes(bytes: &[u8; 32]) -> Self {
+        XEdDSAPrivateKey {
+            montgomery_private_key: Scalar::from_bytes_mod_order(*bytes),
+        }
+    }
+
     /// The XEdDSA public key for the key pair.
     pub fn compute_public_key(&self) -> XEdDSAPublicKey {
         XEdDSAPublicKey {
