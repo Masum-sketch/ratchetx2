@@ -6,6 +6,7 @@ mod message;
 use dh_root::DhRootRatchet;
 use message::MessageRatchet;
 use ring::agreement::EphemeralPrivateKey;
+use x25519_dalek::StaticSecret as X25519StaticSecret;
 
 use crate::key::{HeaderKey, MessageKey, SecretKey};
 
@@ -99,6 +100,52 @@ impl Ratchetx2 {
     ) -> Self {
         Self {
             dh_root: DhRootRatchet::bob(secret_key, private_key),
+            msgs: MessageRatchet::empty(header_key_bob),
+            msgr: MessageRatchet::empty(header_key_alice),
+            dh_step_s: false,
+        }
+    }
+
+    /// New a party who waits for the message first, from x25519-dalek StaticSecret (serializable).
+    /// # Args
+    /// - secret_key, header_key_alice, header_key_bob: shared keys for initialization
+    /// - private_key: x25519-dalek StaticSecret (can be saved/loaded from bytes)
+    ///
+    /// # Caution
+    /// Bob is initialized with [0; 32] as message key and header key, therefore,
+    /// step_dh_root to update message receiving chain before first receiving,
+    /// and step_dh_root again before first sending.
+    pub fn bob_from_static_secret(
+        secret_key: SecretKey,
+        private_key: X25519StaticSecret,
+        header_key_alice: HeaderKey,
+        header_key_bob: HeaderKey,
+    ) -> Self {
+        Self {
+            dh_root: DhRootRatchet::bob_from_static_secret(secret_key, private_key),
+            msgs: MessageRatchet::empty(header_key_bob),
+            msgr: MessageRatchet::empty(header_key_alice),
+            dh_step_s: false,
+        }
+    }
+
+    /// New a party who waits for the message first, from raw 32 bytes.
+    /// # Args
+    /// - secret_key, header_key_alice, header_key_bob: shared keys for initialization
+    /// - private_key_bytes: raw 32-byte private key (e.g., from SPK storage)
+    ///
+    /// # Caution
+    /// Bob is initialized with [0; 32] as message key and header key, therefore,
+    /// step_dh_root to update message receiving chain before first receiving,
+    /// and step_dh_root again before first sending.
+    pub fn bob_from_bytes(
+        secret_key: SecretKey,
+        private_key_bytes: &[u8; 32],
+        header_key_alice: HeaderKey,
+        header_key_bob: HeaderKey,
+    ) -> Self {
+        Self {
+            dh_root: DhRootRatchet::bob_from_bytes(secret_key, private_key_bytes),
             msgs: MessageRatchet::empty(header_key_bob),
             msgr: MessageRatchet::empty(header_key_alice),
             dh_step_s: false,

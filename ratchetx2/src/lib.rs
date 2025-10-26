@@ -22,6 +22,8 @@ pub mod xeddsa;
 pub use curve25519_dalek::Scalar;
 /// Re-export ring.
 pub use ring::{agreement, rand};
+/// Re-export x25519-dalek for serializable keys.
+pub use x25519_dalek::StaticSecret as X25519StaticSecret;
 /// Re-export tonic.
 #[cfg(feature = "grpc")]
 pub use tonic::transport::{Certificate, Identity, Uri};
