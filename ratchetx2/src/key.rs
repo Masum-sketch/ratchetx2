@@ -35,6 +35,17 @@ impl SharedKeys {
         )
     }
 
+    /// New a double-ratchet who sends message first, using a serializable StaticSecret.
+    pub fn alice_from_static_secret(&self, private_key: X25519StaticSecret, public_key: &[u8]) -> Ratchetx2 {
+        Ratchetx2::alice_from_static_secret(
+            self.secret_key,
+            private_key,
+            public_key,
+            self.header_key_alice,
+            self.header_key_bob,
+        )
+    }
+
     /// New a double-ratchet who waits for the message first.
     pub fn bob(&self, private_key: EphemeralPrivateKey) -> Ratchetx2 {
         Ratchetx2::bob(

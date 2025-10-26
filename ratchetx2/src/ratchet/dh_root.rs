@@ -172,6 +172,15 @@ impl DhRootRatchet {
         }
     }
 
+    /// New a DhRootRatchet for Alice from x25519-dalek StaticSecret (serializable).
+    pub fn alice_from_static_secret(secret_key: SecretKey, private_key: X25519StaticSecret) -> Self {
+        Self {
+            root_key: secret_key,
+            private_key: DhPrivateKey::Dalek(private_key),
+            update_private_key: false,
+        }
+    }
+
     /// New a DhRootRatchet for Bob (ring::EphemeralPrivateKey).
     pub fn bob(secret_key: SecretKey, private_key: EphemeralPrivateKey) -> Self {
         Self {

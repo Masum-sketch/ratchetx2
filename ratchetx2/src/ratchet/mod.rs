@@ -86,6 +86,27 @@ impl Ratchetx2 {
         this
     }
 
+    /// New a party who sends message first, from x25519-dalek StaticSecret (serializable).
+    /// # Args
+    /// - secret_key, header_key_alice, header_key_bob: shared keys for initialization
+    /// - private_key: x25519-dalek StaticSecret (can be saved/loaded from bytes)
+    pub fn alice_from_static_secret(
+        secret_key: SecretKey,
+        private_key: X25519StaticSecret,
+        public_key: &[u8],
+        header_key_alice: HeaderKey,
+        header_key_bob: HeaderKey,
+    ) -> Self {
+        let mut this = Self {
+            dh_root: DhRootRatchet::alice_from_static_secret(secret_key, private_key),
+            msgs: MessageRatchet::empty(header_key_alice),
+            msgr: MessageRatchet::empty(header_key_bob),
+            dh_step_s: true,
+        };
+        this.step_dh_root(public_key);
+        this
+    }
+
     /// New a party who waits for the message first.
     /// # Args
     /// - secret_key, header_key_alice, header_key_bob: shared keys for initialization
