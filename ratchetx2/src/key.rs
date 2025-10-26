@@ -14,7 +14,7 @@ pub type ChainKey = [u8; 32];
 pub type HeaderKey = [u8; 32];
 
 /// Shared keys to initialize Ratchetx2.
-#[derive(Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 #[cfg_attr(test, derive(Debug))]
 pub struct SharedKeys {
     /// The first shared RootKey.
