@@ -1,9 +1,11 @@
 use crate::key::{ChainKey, HeaderKey, RootKey, SecretKey};
+use bincode::{Encode, Decode};
 use ring::agreement::{EphemeralPrivateKey, UnparsedPublicKey, X25519, agree_ephemeral};
 use ring::hkdf::{HKDF_SHA256, Salt};
-use ring::rand::SystemRandom;
+use ring::rand::{SystemRandom, SecureRandom};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519StaticSecret};
 use zeroize::{Zeroize, ZeroizeOnDrop};
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 
 /// DH private key that can be either ring's EphemeralPrivateKey or x25519-dalek's StaticSecret
 enum DhPrivateKey {
@@ -17,6 +19,79 @@ impl std::fmt::Debug for DhPrivateKey {
             DhPrivateKey::Ring(_) => f.write_str("DhPrivateKey::Ring(...)"),
             DhPrivateKey::Dalek(_) => f.write_str("DhPrivateKey::Dalek(...)"),
         }
+    }
+}
+
+// Custom serialization for DhPrivateKey
+// Note: Only Dalek variant is serializable (Ring's EphemeralPrivateKey cannot be serialized)
+impl Serialize for DhPrivateKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            DhPrivateKey::Dalek(secret) => {
+                serializer.serialize_bytes(&secret.to_bytes())
+            }
+            DhPrivateKey::Ring(_) => {
+                Err(serde::ser::Error::custom("Cannot serialize Ring EphemeralPrivateKey - use Dalek variant for persistence"))
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for DhPrivateKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        if bytes.len() != 32 {
+            return Err(serde::de::Error::custom("Invalid private key length, expected 32 bytes"));
+        }
+        let mut key_bytes = [0u8; 32];
+        key_bytes.copy_from_slice(&bytes);
+        Ok(DhPrivateKey::Dalek(X25519StaticSecret::from(key_bytes)))
+    }
+}
+
+// Implement Encode for DhPrivateKey (bincode 2.0)
+impl Encode for DhPrivateKey {
+    fn encode<E: bincode::enc::Encoder>(
+        &self,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        match self {
+            DhPrivateKey::Dalek(secret) => {
+                bincode::Encode::encode(&secret.to_bytes(), encoder)?;
+                Ok(())
+            }
+            DhPrivateKey::Ring(_) => {
+                Err(bincode::error::EncodeError::Other(
+                    "Cannot encode Ring EphemeralPrivateKey - use Dalek variant for persistence"
+                ))
+            }
+        }
+    }
+}
+
+// Implement Decode for DhPrivateKey (bincode 2.0)
+impl<Context> Decode<Context> for DhPrivateKey {
+    fn decode<D: bincode::de::Decoder>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let bytes: [u8; 32] = bincode::Decode::decode(decoder)?;
+        Ok(DhPrivateKey::Dalek(X25519StaticSecret::from(bytes)))
+    }
+}
+
+// Implement BorrowDecode for DhPrivateKey (required by bincode Decode derive)
+impl<'de, Context> bincode::BorrowDecode<'de, Context> for DhPrivateKey {
+    fn borrow_decode<D: bincode::de::BorrowDecoder<'de>>(
+        decoder: &mut D,
+    ) -> Result<Self, bincode::error::DecodeError> {
+        let bytes: [u8; 32] = bincode::BorrowDecode::borrow_decode(decoder)?;
+        Ok(DhPrivateKey::Dalek(X25519StaticSecret::from(bytes)))
     }
 }
 
@@ -49,9 +124,25 @@ impl DhPrivateKey {
     fn generate_ring() -> Self {
         DhPrivateKey::Ring(EphemeralPrivateKey::generate(&X25519, &SystemRandom::new()).unwrap())
     }
+
+    fn generate_dalek() -> Self {
+        // Generate random bytes for Dalek key
+        let rng = SystemRandom::new();
+        let mut secret_bytes = [0u8; 32];
+        rng.fill(&mut secret_bytes).unwrap();
+        DhPrivateKey::Dalek(X25519StaticSecret::from(secret_bytes))
+    }
+
+    /// Generate a new key of the same variant as self
+    fn generate_same_type(&self) -> Self {
+        match self {
+            DhPrivateKey::Ring(_) => Self::generate_ring(),
+            DhPrivateKey::Dalek(_) => Self::generate_dalek(),
+        }
+    }
 }
 
-#[derive(Debug, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode, Zeroize, ZeroizeOnDrop)]
 pub(super) struct DhRootRatchet {
     root_key: RootKey,
     #[zeroize(skip)]
@@ -118,7 +209,7 @@ impl DhRootRatchet {
         let dh_output = self.private_key.agree(public_key);
         
         if self.update_private_key {
-            self.private_key = DhPrivateKey::generate_ring();
+            self.private_key = self.private_key.generate_same_type();
         }
         self.update_private_key = !self.update_private_key;
 

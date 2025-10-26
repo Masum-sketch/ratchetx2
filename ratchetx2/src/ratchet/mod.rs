@@ -3,9 +3,11 @@
 mod dh_root;
 mod message;
 
+use bincode::{Encode, Decode};
 use dh_root::DhRootRatchet;
 use message::MessageRatchet;
 use ring::agreement::EphemeralPrivateKey;
+use serde::{Serialize, Deserialize};
 use x25519_dalek::StaticSecret as X25519StaticSecret;
 
 use crate::key::{HeaderKey, MessageKey, SecretKey};
@@ -42,7 +44,7 @@ use crate::key::{HeaderKey, MessageKey, SecretKey};
 /// assert_eq!(alice.step_msgs(), bob.step_msgr());
 /// assert_eq!(alice.step_msgs(), bob.step_msgr());
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct Ratchetx2 {
     dh_root: DhRootRatchet,
     msgs: MessageRatchet,

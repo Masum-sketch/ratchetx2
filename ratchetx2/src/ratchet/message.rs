@@ -1,8 +1,10 @@
 use crate::key::{ChainKey, HeaderKey, MessageKey};
+use bincode::{Encode, Decode};
 use ring::hmac::{HMAC_SHA256, Key, sign};
+use serde::{Serialize, Deserialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Encode, Decode, Zeroize, ZeroizeOnDrop)]
 pub(super) struct MessageRatchet {
     chain_key: ChainKey,
     pub header_key: HeaderKey,

@@ -2,6 +2,7 @@
 #![allow(missing_docs)]
 
 use ring::agreement::EphemeralPrivateKey;
+use x25519_dalek::StaticSecret as X25519StaticSecret;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::Ratchetx2;
@@ -39,6 +40,26 @@ impl SharedKeys {
         Ratchetx2::bob(
             self.secret_key,
             private_key,
+            self.header_key_alice,
+            self.header_key_bob,
+        )
+    }
+
+    /// New a double-ratchet who waits for the message first, using a serializable StaticSecret.
+    pub fn bob_from_static_secret(&self, private_key: X25519StaticSecret) -> Ratchetx2 {
+        Ratchetx2::bob_from_static_secret(
+            self.secret_key,
+            private_key,
+            self.header_key_alice,
+            self.header_key_bob,
+        )
+    }
+
+    /// New a double-ratchet who waits for the message first, using private key bytes.
+    pub fn bob_from_bytes(&self, private_key_bytes: &[u8; 32]) -> Ratchetx2 {
+        Ratchetx2::bob_from_bytes(
+            self.secret_key,
+            private_key_bytes,
             self.header_key_alice,
             self.header_key_bob,
         )
